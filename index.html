@@ -725,7 +725,45 @@
             "Utilizes ICT tools proficiently."
         ];
 
-        // ── Helper: look up comment by avg score from a table ──────────────────
+        
+        // ════════════════════════════════════════════════════════════════
+        // STRICT INPUT VALIDATION - PREVENTS INVALID DATA FROM SAVING
+        // T1-T6: max 3 | Formative: max 20 | EOY: max 80
+        // ════════════════════════════════════════════════════════════════
+
+        function validateScore(field, value) {
+            // Empty values are OK
+            if (value === '' || value === null || value === undefined) return true;
+            
+            const num = parseFloat(value);
+            if (isNaN(num) || num < 0) return false;
+            
+            if (field.match(/^t[1-6]$/) && num > 3) return false;
+            if (field === 'formative' && num > 20) return false;
+            if (field === 'eoy' && num > 80) return false;
+            
+            return true;
+        }
+
+        function saveScoreStrictly(subjectId, sId, field, value, inputElement) {
+            if (!validateScore(field, value)) {
+                const msg = field.match(/^t[1-6]$/) ? `${field.toUpperCase()} exceeds max of 3` :
+                           field === 'formative' ? 'Formative exceeds max of 20' :
+                           field === 'eoy' ? 'EOY exceeds max of 80' : 'Invalid input';
+                
+                const div = document.createElement('div');
+                div.style.cssText = 'position:fixed;top:20px;right:20px;background:#dc2626;color:white;padding:15px 20px;border-radius:8px;z-index:9999;font-size:13px;font-weight:bold;';
+                div.innerHTML = '❌ REJECTED: ' + msg;
+                document.body.appendChild(div);
+                setTimeout(() => div.remove(), 3000);
+                
+                if (inputElement) inputElement.value = '';
+                return;
+            }
+            updateSubject(subjectId, sId, field, value);
+        }
+
+// ── Helper: look up comment by avg score from a table ──────────────────
         function lookupComment(table, avgScore, fname) {
             const score = parseFloat(avgScore) || 0;
             for (const row of table) {
@@ -956,17 +994,17 @@
                 html += `
                     <tr>
                         <td><strong>${s.fname} ${s.lname}</strong></td>
-                        <td><input type="number" value="${t1}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't1', this.value)"></td>
-                        <td><input type="number" value="${t2}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't2', this.value)"></td>
-                        <td><input type="number" value="${t3}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't3', this.value)"></td>
-                        <td><input type="number" value="${t4}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't4', this.value)"></td>
-                        <td><input type="number" value="${t5}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't5', this.value)"></td>
-                        <td><input type="number" value="${t6}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't6', this.value)"></td>
-                        <td><input type="number" value="${formative}" min="0" max="20" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 'formative', this.value)"></td>
-                        <td><input type="number" value="${eoy}" min="0" max="80" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 'eoy', this.value)"></td>
+                        <td><input type="number" value="${t1}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't1', this.value) || (this.value = \'\')"></td>
+                        <td><input type="number" value="${t2}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't2', this.value) || (this.value = \'\')"></td>
+                        <td><input type="number" value="${t3}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't3', this.value) || (this.value = \'\')"></td>
+                        <td><input type="number" value="${t4}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't4', this.value) || (this.value = \'\')"></td>
+                        <td><input type="number" value="${t5}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't5', this.value) || (this.value = \'\')"></td>
+                        <td><input type="number" value="${t6}" min="0" max="3" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 't6', this.value) || (this.value = \'\')"></td>
+                        <td><input type="number" value="${formative}" min="0" max="20" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 'formative', this.value) || (this.value = \'\')"></td>
+                        <td><input type="number" value="${eoy}" min="0" max="80" step="0.1" onchange="updateSubject('${subjectId}', '${sId}', 'eoy', this.value) || (this.value = \'\')"></td>
                         <td class="auto-calc">${total.toFixed(1)}</td>
                         <td class="grade-${grade.toLowerCase()}">${grade}</td>
-                        <td><input type="text" value="${m.teacher || ''}" placeholder="Teacher name" onchange="updateSubject('${subjectId}', '${sId}', 'teacher', this.value)"></td>
+                        <td><input type="text" value="${m.teacher || ''}" placeholder="Teacher name" onchange="updateSubject('${subjectId}', '${sId}', 'teacher', this.value) || (this.value = \'\')"></td>
                         <td style="font-size:9px;font-style:italic;color:#555;padding:4px;">${m.teacherRemark || getFormativeRemark(formative)}</td>
                     </tr>
                 `;
@@ -984,11 +1022,28 @@
         }
 
         function updateSubject(subId, sId, field, value) {
+            // VALIDATE FIRST - BEFORE ANY DATA MODIFICATION
+            if (!validateScore(field, value)) {
+                // Show error
+                const msg = field.match(/^t[1-6]$/) ? `❌ ${field.toUpperCase()} max is 3` :
+                           field === 'formative' ? '❌ Formative max is 20' :
+                           field === 'eoy' ? '❌ EOY max is 80' : '❌ Invalid input';
+                
+                const div = document.createElement('div');
+                div.style.cssText = 'position:fixed;top:20px;right:20px;background:#dc2626;color:white;padding:15px 20px;border-radius:8px;z-index:9999;font-size:14px;font-weight:bold;max-width:320px;box-shadow:0 4px 15px rgba(0,0,0,0.4);';
+                div.innerHTML = msg;
+                document.body.appendChild(div);
+                setTimeout(() => div.remove(), 3000);
+                return false; // STRICT RETURN
+            }
+            
+            // ONLY NOW modify and save data
             const data = getClassData();
             if (!data.subjects[subId]) data.subjects[subId] = {};
             if (!data.subjects[subId][sId]) data.subjects[subId][sId] = {};
             data.subjects[subId][sId][field] = value;
             saveClassData(data);
+            return true;
         }
 
         function addStudent() {
